@@ -88,10 +88,69 @@
 В этом методе мы используем функцию atexit(), чтобы зарегистрировать функцию обработчика, которая будет вызвана при 
 завершении программы. В этой функции мы вызываем функцию shmdt() для отсоединения разделяемой памяти и функцию shmctl() для удаления сегмента разделяемой памяти.
 
+```c
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/shm.h>
+
+int shmid;
+int *shmaddr;
+
+void cleanup() {
+    shmdt(shmaddr);
+    shmctl(shmid, IPC_RMID, NULL);
+}
+
+int main() {
+    key_t key = ftok("file", 'R');
+    shmid = shmget(key, sizeof(int), 0644 | IPC_CREAT);
+    shmaddr = shmat(shmid, (void *)0, 0);
+
+    atexit(cleanup);
+
+    /* остальной код */
+}
+```
+
 2. Использование функции exit()
 
 В этом методе мы используем функцию exit() для завершения программы и очистки разделяемой памяти. В функции обработчика сигнала мы устанавливаем флаг, который указывает, 
 что произошел сигнал завершения, и затем вызываем функцию exit().
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/shm.h>
+
+int shmid;
+int *shmaddr;
+int exit_flag = 0;
+
+void signal_handler(int signum) {
+    if (signum == SIGINT) {
+        exit_flag = 1;
+        exit(0);
+    }
+}
+
+int main() {
+    signal(SIGINT, signal_handler);
+
+    key_t key = ftok("file", 'R');
+    shmid = shmget(key, sizeof(int), 0644 | IPC_CREAT);
+    shmaddr = shmat(shmid, (void *)0, 0);
+
+    while (!exit_flag) {
+        /* остальной код */
+    }
+
+    shmdt(shmaddr);
+    shmctl(shmid, IPC_RMID, NULL);
+
+    return 0;
+}
+```
 
 ### Пример работы программы:
 ![img](im1.png)
